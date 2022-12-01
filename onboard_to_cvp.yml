@@ -1,0 +1,60 @@
+---
+- name: CVP Cert based onboarding tasks
+  hosts: DC1
+  gather_facts: no
+  connection: network_cli
+  become: yes
+  become_method: enable
+
+  vars:
+    #################################################
+    # Update token from CVP - Expires on 06/04/2022
+    token: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhc2V0SUQiOjE5NTc1NCwiZXhwIjoxNjU0MjYwNTI3LCJraWQiOiJlNjk1Mjc2YTI2ZTIyYWU2IiwibmJmIjoxNjUxNjY4NTI3LCJyZWVucm9sbERldmljZXMiOlsiKiJdfQ.Cwu-AlS-_-UkLjpIGuhgeSc9ADwY32ptRvlH6N8bessz5kjHDIfBGWuEwe490fUXpuylIPWU1Z-rUXX1tSh8PqkUyCzir8mpL7wvIP6OMlssOlZURP6SgjoVLCDbTHEavxWQpz17JQaqKmDSuvS5px8u_Usm_PbyQ0M2yXDeAGDxl7E39ocg_BtsW9CpE1a_aynYYOl09B4hAj2mGLKM0a7_wTRA419ubHnhOSmXWidnAdEdSRyMfPv2x159JKL8nk-fZhr1X54nDDdva38mh9Rkp8b4u-v1hXv5pdyg8tLgWr2cXRGi-R6i-Yd6-lO61e1A7kulg1LvUv3Pmlbxhe2xm3NPmjigNjPjMOdns55MSAZL0FuQH4hDQMJ_k208ZwB3HUPTSsZMiN9ClVUSDpkaLPteMsV31bunEP9GNVYKznhz_9Vpj1JsuWeuzpJShgl-qP845uj1PrPruSDpBPmIOG8m0InY6pC4Mymvbwt0OjB6RGMk6q06qr36PbySGt_jM_da4LD3RKbOqrCWSYQXbDYzMHqpE2g6t2MknAUvMRo9hTbS8MGUInneFSwDJjikkk2KHga9he4UIG1N-9KsSfYgnEv25MY4hnssiZ1hwqn3MC_ycAmRORzFaw0YRt9Rlj8lOQ-G7GTnV5uSEuiwsAEb_JU9TL3MPJe5wE0"
+    #################################################
+
+    #################################################
+    # SSH Access to Switches
+    # Uses network_cli vs httpapi
+    #################################################
+
+    ansible_network_os: eos
+    ansible_connection: network_cli
+    ansible_user: admin # update
+    ansible_password: admin # update
+    ansible_become: true
+    ansible_become_method: enable
+    ansible_httpapi_use_ssl: true
+    ansible_httpapi_validate_certs: no
+    ansible_python_interpreter: $(which python3)
+
+
+  tasks:
+    - name: Create token file
+      copy:
+        dest: /tmp/token
+        content: "{{ token }}"
+      run_once: true
+
+    - name: Copy token file to {{ inventory_hostname }}
+      ansible.netcommon.net_put:
+        src: /tmp/token
+        protocol: sftp
+        dest: /tmp/token
+
+    # Configure the TerminAttr from contents of Jinja template
+    # Update this template to match youyr environment
+    - name: Configure TerminAttr daemon
+      arista.eos.eos_config:
+        src: terminattr.j2
+
+    - name: Disable TerminAttr daemon
+      arista.eos.eos_config:
+        lines:
+            - shutdown
+        parents: daemon TerminAttr
+
+    - name: Enable TerminAttr daemon
+      arista.eos.eos_config:
+        lines:
+            - no shutdown
+        parents: daemon TerminAttr
