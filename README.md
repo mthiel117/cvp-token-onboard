@@ -1,4 +1,4 @@
-# cvp-token-onboard
+# CVP Token Based Authentication
 
 Automate copying CVP registration token to switches and updfate TerminAttr string to use token based auth
 
